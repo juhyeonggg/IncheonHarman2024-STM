@@ -116,6 +116,8 @@ int main(void)
   //  printf("\033[1;1H\n"); // y;xH : (x,y) 위치로 커서이동
   printf("\033[2J\033[1;1H\n"); //  위에 2개 합침
 
+  // git hub 업로드 테스트
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
