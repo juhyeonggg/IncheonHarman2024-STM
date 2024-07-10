@@ -22,9 +22,14 @@ int __io_getchar(void)
 	return ch;
 }
 
+void Wait()
+{
+	while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != 0);
+}
+
 void ProgramStart(char *name)
 {
 	 printf("\033[2J\033[1;1H\n"); //  [y;xH : move cur to (x, y)
 	 printf("Program(%s) ready. Press Blue Button to start\r\n", name );
-	 while(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) != 0);
+	 wait();
 }

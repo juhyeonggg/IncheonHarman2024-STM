@@ -62,8 +62,28 @@ static void MX_TIM2_Init(void);
 int mux = 0;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if(++mux > 40) mux = 1;
+	if(++mux > 20) mux = 1;
 }
+
+enum {DO=0,Do,RE,Re,MI,FA,Fa,SL,Sl,LA,La,CI,hDO,hDo,hRE,hRe,hMI,hFA,hFa,hSL,hSl,hLA,hLa,hCI}; //  enum : 치환
+double pitchF[] = {130.81, 138.59, 146.83, 155.56, 164.81, 174.61, 185.00, 196.00, 207.65, 220.00, 233.08, 246.94, 261.62, 277.18, 293.66, 311.12, 329.62, 349.22, 370.00, 392.00, 415.30, 440.00, 466.16, 493.88};
+int p3[24];
+int arr = 1000, clk = 84000000;
+void calcPitch()
+{
+	for(int i=0;i<24;i++)
+	{
+		p3[i] = clk / (2*pitchF[i] * arr);
+	}
+}
+void PlaySound(int pIdx, int rtm)
+{
+	htim2.Instance->PSC = p3[pIdx];
+	HAL_Delay(2000 / rtm);
+}
+
+int Song[] = {SL,SL,MI,FA,SL,LA,LA,SL,SL,hDO,hMI,hRE,hDO,hRE,hMI,hMI,hRE,hRE,hDO,hRE,hDO,LA,LA,SL,SL,SL,MI,RE,DO, -1};
+int Rythm[] = {4,4,8,8,4,4,4,2,4,4,4,8,8,1,4,4,4,4,4,8,8,4,4,4,4,4,8,8,1};
 /* USER CODE END 0 */
 
 /**
@@ -97,22 +117,30 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-ProgramStart("PWM");
+ProgramStart("Song");
+calcPitch();
 HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-htim2.Instance->CCR3 = 20; // sound volume
+htim2.Instance->CCR3 = htim2.Instance->ARR / 2; // duty rate = 50% sound volume
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   int sn = 2800;	// C3(3 octave do)
+  mux = 1;
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  htim2.Instance->PSC = 321.06;
-	  int f = 84000L / (htim2.Instance->PSC);
-	  printf("Current Frequency : %d\r\n", f);
+	  for(int i = 0; Song[i] != -1; i++)
+	  {
+		  PlaySound(Song[i], Rythm[i]);
+	  }
+	 // while(Song[i] != -1 /* 수행조건식 */)
+	  htim2.Instance->CCR3 = 0; // Duty rate 0;
+	  // int f = 84000L / (htim2.Instance->PSC);
+	  printf("Song Over. Press B! button to restart...\r\n");
+	  Wait();
   }
   /* USER CODE END 3 */
 }
