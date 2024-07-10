@@ -21,7 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -41,11 +40,11 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-char s[200]; 	// output buffer
-char b[100]; 	// input buffer
 
 /* USER CODE END PV */
 
@@ -53,32 +52,18 @@ char b[100]; 	// input buffer
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int mode = 0;
-int count = 0;
-char s[200];
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)  // EXTI15 (B1) ISR
+int mux = 0;
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	switch (GPIO_Pin)
-	{
-	case B1_Pin:
-		mode ++;
-		if(mode > 1) mode = 0;
-		break;
-	case B2_Pin:
-		printf("%d times pressed\r\n", count++);
-		//sprintf(s, "%d times pressed\r\n", count++); puts(s);// s : character buffer, puts : auto lf
-		break;
-	}
-
+	if(++mux > 40) mux = 1;
 }
-
-
 /* USER CODE END 0 */
 
 /**
@@ -110,31 +95,24 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  //  printf("\033[2J\n"); // clear screen
-  //  printf("\033[1;1H\n"); // y;xH : (x,y) ?��치로 커서?��?��
-  ProgramStart();
-  setvbuf(stdin, NULL, _IONBF, 0); // input buffer clearstdin : input stream(key board)
-  int i; scanf("%d", &i);
-  printf("your input number : %d\r\n", i);
-  count = i;
+ProgramStart("PWM");
+HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+htim2.Instance->CCR3 = 20; // sound volume
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  int sn = 2800;	// C3(3 octave do)
   while (1)
   {
-	  //int a = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13); // PC13 : B1
-	  if(mode == 1)
-	  {
-	  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 1); // PA5
-	  HAL_Delay(500); //  500ms
-	  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 0);
-	  HAL_Delay(500); //  500ms
-	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  htim2.Instance->PSC = 321.06;
+	  int f = 84000L / (htim2.Instance->PSC);
+	  printf("Current Frequency : %d\r\n", f);
   }
   /* USER CODE END 3 */
 }
@@ -183,6 +161,55 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 8400-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 1000-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
 }
 
 /**
@@ -251,16 +278,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : B2_Pin */
-  GPIO_InitStruct.Pin = B2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(B2_GPIO_Port, &GPIO_InitStruct);
-
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
